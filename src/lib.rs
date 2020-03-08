@@ -1,11 +1,12 @@
 mod color;
-mod image;
+mod generator;
 
 use std::fs::File;
 use std::io::stdout;
 use std::io::BufWriter;
 
-pub use crate::image::*;
+pub use crate::generator::*;
+
 use rand::prelude::*;
 use std::path::Path;
 use std::path::PathBuf;
@@ -13,11 +14,11 @@ use std::path::PathBuf;
 use structopt::StructOpt;
 
 fn parse_tuple(s: &str) -> Result<(u32, u32), String> {
-    let split: Vec<_> = s.split(",").collect();
+    let split: Vec<_> = s.split(|c| c == ',' || c == 'x').collect();
 
     if split.len() != 2 {
         return Err(String::from(
-            "Two arguments are needed seperated by a comma in the form 'x,y'",
+            "Two arguments are needed seperated by a comma in the form '12,34' or 12x34",
         ));
     }
 
@@ -71,7 +72,7 @@ fn x11_resolution() -> (u32, u32) {
 }
 
 pub fn run(cfg: &Config) -> Result<(), String> {
-    let mut gen = match cfg.seed {
+    let mut rnd = match cfg.seed {
         Some(s) => SmallRng::seed_from_u64(s),
         None => SmallRng::from_rng(thread_rng()).unwrap(),
     };
@@ -84,28 +85,28 @@ pub fn run(cfg: &Config) -> Result<(), String> {
     let (cx, cy) = match cfg.center {
         Some(r) => r,
         None => {
-            let cx = gen.gen_range(0, w);
-            let cy = gen.gen_range(0, h);
+            let cx = rnd.gen_range(0, w);
+            let cy = rnd.gen_range(0, h);
             (cx, cy)
         }
     };
 
     eprintln!("resolution: {}x{}", w, h);
     eprintln!("Creating image");
-    let mut img = Image::new(w, h);
+    let mut gen = Generator::new(w, h);
     eprintln!("generating...");
-    img.generate(&mut gen, (cx, cy))?;
+    gen.generate(&mut rnd, (cx, cy))?;
 
     match &cfg.output {
         Some(path) => {
             if path.as_path() == Path::new("-") {
                 let mut w = stdout();
-                img.save(&mut w);
+                gen.save(&mut w);
             } else {
                 eprintln!("Saving to {:?}...", path.display());
                 let file = File::create(path).unwrap();
                 let mut w = BufWriter::new(file);
-                img.save(&mut w);
+                gen.save(&mut w);
             }
         }
         None => {

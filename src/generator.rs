@@ -4,15 +4,15 @@ use rand::prelude::*;
 
 use crate::color::Color;
 
-pub struct Image {
+pub struct Generator {
     width: u32,
     height: u32,
     data: Vec<Option<Color>>,
 }
 
-impl Image {
+impl Generator {
     pub fn new(width: u32, height: u32) -> Self {
-        Image {
+        Generator {
             width,
             height,
             data: vec![None; (width * height) as usize],
