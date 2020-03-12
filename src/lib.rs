@@ -60,6 +60,7 @@ impl Config {
         }
     }
 }
+
 // TODO: make platform independent
 fn x11_resolution() -> (u32, u32) {
     let (conn, screen_num) = xcb::Connection::connect(None).unwrap();

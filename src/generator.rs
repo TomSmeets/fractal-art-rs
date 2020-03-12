@@ -32,14 +32,13 @@ impl Generator {
             }
         };
 
-        for o in -r..=r {
+        // TODO: what about cirlces instad of squares?
+        for o in -r..r {
             put(&mut xs, i + o, j + r);
-            put(&mut xs, i + o, j - r);
-            put(&mut xs, i + r, j + o);
+            put(&mut xs, i - o, j - r);
             put(&mut xs, i - r, j + o);
+            put(&mut xs, i + r, j - o);
         }
-
-        // TODO: Shuffle
 
         xs.shuffle(gen);
         xs
