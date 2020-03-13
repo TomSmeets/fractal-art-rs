@@ -49,7 +49,7 @@ impl Generator {
             None
         } else {
             let i = (y as u32 * self.width + x as u32) as usize;
-            Some(&mut self.data[i])
+            unsafe { Some(self.data.get_unchecked_mut(i)) }
         }
     }
 
@@ -58,7 +58,7 @@ impl Generator {
             None
         } else {
             let i = (y as u32 * self.width + x as u32) as usize;
-            Some(self.data[i].clone())
+            unsafe { Some(self.data.get_unchecked(i).clone()) }
         }
     }
 
