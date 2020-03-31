@@ -9,51 +9,54 @@ pub struct Generator<R> {
     center: [u32; 2],
     rng: R,
 
+    ring_count: i32,
     data: Vec<Option<Color>>,
 }
 
 impl<R: Rng> Generator<R> {
     pub fn new(size: [u32; 2], center: [u32; 2], rng: R) -> Self {
-        Generator {
+        let cx = center[0] as i32;
+        let cy = center[1] as i32;
+        let sx = size[0] as i32;
+        let sy = size[1] as i32;
+
+        // center
+        let ring_count = *[cx, cy, sx - cx, sy - cy].iter().max().unwrap();
+
+        let mut gen = Generator {
             size,
             center,
             rng,
+            ring_count,
             data: vec![None; (size[0] * size[1]) as usize],
+        };
+
+        // place first pixel
+        // TODO: make configurable
+        {
+            let r = gen.rng.gen::<f32>();
+            let g = gen.rng.gen::<f32>();
+            let b = gen.rng.gen::<f32>();
+            let make_light = 1.0 / (0.299 * r * r + 0.587 * g * g + 0.114 * b * b).sqrt();
+            let p = gen.at_mut(cx, cy).expect("Center point is out of range!");
+            *p = Some(Color {
+                r: r * make_light,
+                g: g * make_light,
+                b: b * make_light,
+            });
         }
+
+        gen
     }
 
     pub fn generate(&mut self) -> Result<(), String> {
         let cx = self.center[0] as i32;
         let cy = self.center[1] as i32;
 
-        let width  = self.size[0];
-        let height = self.size[1];
-
-        // center
-        let ring_count = *[cx, cy, width as i32 - cx, height as i32 - cy]
-            .iter()
-            .max()
-            .unwrap_or(&0);
-
-        {
-            let r = self.rng.gen::<f32>();
-            let g = self.rng.gen::<f32>();
-            let b = self.rng.gen::<f32>();
-
-            let l = (0.299 * r * r + 0.587 * g * g + 0.114 * b * b).sqrt();
-
-            let p = self.at_mut(cx, cy).expect("Center point is out of range!");
-            *p = Some(Color {
-                r: r / l,
-                g: g / l,
-                b: b / l,
-            });
-        }
-
         let mut p_old = 0;
-        for r in 1..ring_count {
+        for r in 1..self.ring_count {
             {
-                let p = r * 100 / ring_count;
+                let p = r * 100 / self.ring_count;
                 if p != p_old {
                     eprintln!("progress: {}%", p);
                     p_old = p;
@@ -161,5 +164,4 @@ impl<R: Rng> Generator<R> {
             unsafe { Some(self.data.get_unchecked(i).clone()) }
         }
     }
-
 }
