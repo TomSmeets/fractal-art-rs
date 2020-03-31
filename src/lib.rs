@@ -94,9 +94,9 @@ pub fn run(cfg: &Config) -> Result<(), String> {
 
     eprintln!("resolution: {}x{}", w, h);
     eprintln!("Creating image");
-    let mut gen = Generator::new(w, h);
+    let mut gen = Generator::new([w, h], [cx, cy], rnd);
     eprintln!("generating...");
-    gen.generate(&mut rnd, (cx, cy))?;
+    gen.generate()?;
 
     match &cfg.output {
         Some(path) => {

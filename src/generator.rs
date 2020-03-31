@@ -4,78 +4,41 @@ use rand::prelude::*;
 
 use crate::color::Color;
 
-pub struct Generator {
-    width: u32,
-    height: u32,
+pub struct Generator<R> {
+    size: [u32; 2],
+    center: [u32; 2],
+    rng: R,
+
     data: Vec<Option<Color>>,
 }
 
-impl Generator {
-    pub fn new(width: u32, height: u32) -> Self {
+impl<R: Rng> Generator<R> {
+    pub fn new(size: [u32; 2], center: [u32; 2], rng: R) -> Self {
         Generator {
-            width,
-            height,
-            data: vec![None; (width * height) as usize],
+            size,
+            center,
+            rng,
+            data: vec![None; (size[0] * size[1]) as usize],
         }
     }
 
-    fn check(&self, x: i32, y: i32) -> bool {
-        x >= 0 && y >= 0 && x < self.width as i32 && y < self.height as i32
-    }
+    pub fn generate(&mut self) -> Result<(), String> {
+        let cx = self.center[0] as i32;
+        let cy = self.center[1] as i32;
 
-    fn around(&self, i: i32, j: i32, r: i32, gen: &mut impl Rng) -> Vec<(i32, i32)> {
-        let mut xs = Vec::new();
-
-        let put = |xs: &mut Vec<(i32, i32)>, x, y| {
-            if self.check(x, y) {
-                xs.push((x, y));
-            }
-        };
-
-        // TODO: what about cirlces instad of squares?
-        for o in -r..r {
-            put(&mut xs, i + o, j + r);
-            put(&mut xs, i - o, j - r);
-            put(&mut xs, i - r, j + o);
-            put(&mut xs, i + r, j - o);
-        }
-
-        xs.shuffle(gen);
-        xs
-    }
-
-    fn at_mut(&mut self, x: i32, y: i32) -> Option<&mut Option<Color>> {
-        if !self.check(x, y) {
-            None
-        } else {
-            let i = (y as u32 * self.width + x as u32) as usize;
-            unsafe { Some(self.data.get_unchecked_mut(i)) }
-        }
-    }
-
-    fn at(&self, x: i32, y: i32) -> Option<Option<Color>> {
-        if !self.check(x, y) {
-            None
-        } else {
-            let i = (y as u32 * self.width + x as u32) as usize;
-            unsafe { Some(self.data.get_unchecked(i).clone()) }
-        }
-    }
-
-    pub fn generate(&mut self, gen: &mut impl Rng, (cx, cy): (u32, u32)) -> Result<(), String> {
-        let cx = cx as i32;
-        let cy = cy as i32;
+        let width  = self.size[0];
+        let height = self.size[1];
 
         // center
-        let ring_count = *[cx, cy, self.width as i32 - cx, self.height as i32 - cy]
+        let ring_count = *[cx, cy, width as i32 - cx, height as i32 - cy]
             .iter()
             .max()
             .unwrap_or(&0);
 
         {
-            let r = gen.gen::<f32>();
-            let g = gen.gen::<f32>();
-            let b = gen.gen::<f32>();
+            let r = self.rng.gen::<f32>();
+            let g = self.rng.gen::<f32>();
+            let b = self.rng.gen::<f32>();
 
             let l = (0.299 * r * r + 0.587 * g * g + 0.114 * b * b).sqrt();
 
@@ -96,10 +59,10 @@ impl Generator {
                     p_old = p;
                 }
             }
-            let vs = self.around(cx, cy, r, gen);
+            let vs = self.around(cx, cy, r);
             for (x, y) in vs {
                 let mut c: Option<Color> = None;
-                for (x, y) in self.around(x, y, 1, gen) {
+                for (x, y) in self.around(x, y, 1) {
                     if let Some(Some(px)) = self.at(x, y) {
                         c = Some(px);
                         break;
@@ -111,12 +74,14 @@ impl Generator {
                     None => continue,
                 };
 
+                let c = c.mutate(&mut self.rng);
+
                 let px = match self.at_mut(x, y) {
                     Some(x) => x,
                     None => continue,
                 };
 
-                *px = Some(c.mutate(gen));
+                *px = Some(c);
             }
         }
         Ok(())
@@ -150,7 +115,51 @@ impl Generator {
         }
 
         let mut enc = BMPEncoder::new(writer);
-        enc.encode(&data, self.width, self.height, ColorType::Rgb8)
+        enc.encode(&data, self.size[0], self.size[1], ColorType::Rgb8)
             .unwrap();
     }
+
+    fn check(&self, x: i32, y: i32) -> bool {
+        x >= 0 && y >= 0 && x < self.size[0] as i32 && y < self.size[1] as i32
+    }
+
+    fn around(&mut self, i: i32, j: i32, r: i32) -> Vec<(i32, i32)> {
+        let mut xs = Vec::new();
+
+        let put = |xs: &mut Vec<(i32, i32)>, x, y| {
+            if self.check(x, y) {
+                xs.push((x, y));
+            }
+        };
+
+        // TODO: what about cirlces instad of squares?
+        for o in -r..r {
+            put(&mut xs, i + o, j + r);
+            put(&mut xs, i - o, j - r);
+            put(&mut xs, i - r, j + o);
+            put(&mut xs, i + r, j - o);
+        }
+
+        xs.shuffle(&mut self.rng);
+        xs
+    }
+
+    fn at_mut(&mut self, x: i32, y: i32) -> Option<&mut Option<Color>> {
+        if !self.check(x, y) {
+            None
+        } else {
+            let i = (y as u32 * self.size[0] + x as u32) as usize;
+            unsafe { Some(self.data.get_unchecked_mut(i)) }
+        }
+    }
+
+    fn at(&self, x: i32, y: i32) -> Option<Option<Color>> {
+        if !self.check(x, y) {
+            None
+        } else {
+            let i = (y as u32 * self.size[0] + x as u32) as usize;
+            unsafe { Some(self.data.get_unchecked(i).clone()) }
+        }
+    }
+
 }
