@@ -96,7 +96,14 @@ pub fn run(cfg: &Config) -> Result<(), String> {
     eprintln!("Creating image");
     let mut gen = Generator::new([w, h], [cx, cy], rnd);
     eprintln!("generating...");
-    gen.generate()?;
+
+    while let Some(progress) = gen.next() {
+        if progress.current % 10 == 0 {
+            eprintln!("{}/{} {}", progress.current, progress.total, progress);
+        }
+    }
+
+    eprintln!("Done!");
 
     match &cfg.output {
         Some(path) => {

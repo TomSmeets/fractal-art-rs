@@ -1,14 +1,33 @@
 use image::bmp::BMPEncoder;
 use image::ColorType;
 use rand::prelude::*;
+use std::fmt;
 
 use crate::color::Color;
+
+pub struct Progress {
+    pub current: u32,
+    pub total: u32,
+}
+
+impl Progress {
+    pub fn percentage(&self) -> u32 {
+        self.current * 100 / self.total
+    }
+}
+
+impl fmt::Display for Progress {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}%", self.percentage())
+    }
+}
 
 pub struct Generator<R> {
     size: [u32; 2],
     center: [u32; 2],
     rng: R,
 
+    current_ring: i32,
     ring_count: i32,
     data: Vec<Option<Color>>,
 }
@@ -27,6 +46,7 @@ impl<R: Rng> Generator<R> {
             size,
             center,
             rng,
+            current_ring: 1,
             ring_count,
             data: vec![None; (size[0] * size[1]) as usize],
         };
@@ -49,45 +69,48 @@ impl<R: Rng> Generator<R> {
         gen
     }
 
-    pub fn generate(&mut self) -> Result<(), String> {
+    pub fn next(&mut self) -> Option<Progress> {
+        if self.current_ring == self.ring_count {
+            return None;
+        }
+
+        let r = self.current_ring;
         let cx = self.center[0] as i32;
         let cy = self.center[1] as i32;
-
-        let mut p_old = 0;
-        for r in 1..self.ring_count {
-            {
-                let p = r * 100 / self.ring_count;
-                if p != p_old {
-                    eprintln!("progress: {}%", p);
-                    p_old = p;
+        let vs = self.around(cx, cy, r);
+        for (x, y) in vs {
+            let mut c: Option<Color> = None;
+            for (x, y) in self.around(x, y, 1) {
+                if let Some(Some(px)) = self.at(x, y) {
+                    c = Some(px);
+                    break;
                 }
             }
-            let vs = self.around(cx, cy, r);
-            for (x, y) in vs {
-                let mut c: Option<Color> = None;
-                for (x, y) in self.around(x, y, 1) {
-                    if let Some(Some(px)) = self.at(x, y) {
-                        c = Some(px);
-                        break;
-                    }
-                }
 
-                let c = match c {
-                    Some(x) => x,
-                    None => continue,
-                };
+            let c = match c {
+                Some(x) => x,
+                None => continue,
+            };
 
-                let c = c.mutate(&mut self.rng);
+            let c = c.mutate(&mut self.rng);
 
-                let px = match self.at_mut(x, y) {
-                    Some(x) => x,
-                    None => continue,
-                };
+            let px = match self.at_mut(x, y) {
+                Some(x) => x,
+                None => continue,
+            };
 
-                *px = Some(c);
-            }
+            *px = Some(c);
         }
-        Ok(())
+        let p = Progress {
+            current: self.current_ring as u32,
+            total: self.ring_count as u32,
+        };
+        self.current_ring += 1;
+        Some(p)
+    }
+
+    pub fn finish(&mut self) {
+        while let Some(_) = self.next() {}
     }
 
     pub fn save(&self, writer: &mut impl std::io::Write) {
