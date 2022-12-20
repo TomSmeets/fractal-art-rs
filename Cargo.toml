@@ -7,9 +7,9 @@ description = "This program generates colorful Wallpapers."
 license = "MIT"
 
 [dependencies]
-image = { version = "0.23", default-features = false, features = [ "bmp" ] }
-rand  = { version = "0.7", features = [ "small_rng" ] }
-xcb   = "0.9.0"
+image = { version = "0.24", default-features = false, features = [ "bmp" ] }
+rand  = { version = "0.8", features = [ "small_rng" ] }
+xcb   = "1.2"
 structopt = "0.3.11"
 
 [profile.release]

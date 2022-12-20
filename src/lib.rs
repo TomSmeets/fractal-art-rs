@@ -86,8 +86,8 @@ pub fn run(cfg: &Config) -> Result<(), String> {
     let (cx, cy) = match cfg.center {
         Some(r) => r,
         None => {
-            let cx = rnd.gen_range(0, w);
-            let cy = rnd.gen_range(0, h);
+            let cx = rnd.gen_range(0..w);
+            let cy = rnd.gen_range(0..h);
             (cx, cy)
         }
     };

@@ -1,4 +1,4 @@
-use image::bmp::BMPEncoder;
+use image::codecs::bmp::BmpEncoder;
 use image::ColorType;
 use rand::prelude::*;
 use std::fmt;
@@ -140,7 +140,7 @@ impl<R: Rng> Generator<R> {
             data.push(to_u8(c.b));
         }
 
-        let mut enc = BMPEncoder::new(writer);
+        let mut enc = BmpEncoder::new(writer);
         enc.encode(&data, self.size[0], self.size[1], ColorType::Rgb8)
             .unwrap();
     }
